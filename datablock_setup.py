@@ -1,6 +1,5 @@
 import numpy as np
 import xarray as xr
-import streamlit as st
 import copy
 import base64
 from io import BytesIO
@@ -11,7 +10,6 @@ from Crypto.Util.Padding import unpad
 from agrifoodpy.impact.model import fbs_impacts, fair_co2_only
 from agrifoodpy.pipeline import Pipeline
 
-@st.cache_data(ttl=60*60*24)
 def datablock_setup(population_projection="Medium"):
 
     """
@@ -125,16 +123,12 @@ def datablock_setup(population_projection="Medium"):
     # g_co2e / year
 
     # These are UK values for the entire population and year
-    if "emission_factors" not in st.session_state:
-        st.session_state.emission_factors = "NDC 2020"
+    scale_ones = xr.DataArray(data = np.ones_like(food_uk.Year.values),
+                        coords = {"Year":food_uk.Year.values})
 
-    if st.session_state['emission_factors'] == "NDC 2020":
-        scale_ones = xr.DataArray(data = np.ones_like(food_uk.Year.values),
-                            coords = {"Year":food_uk.Year.values})
+    extended_impact = UKNDC_FAOSTAT["GHG Emissions (IPCC 2013)"].drop_vars(["Item_name", "Item_group", "Item_origin"]) * scale_ones
 
-        extended_impact = UKNDC_FAOSTAT["GHG Emissions (IPCC 2013)"].drop_vars(["Item_name", "Item_group", "Item_origin"]) * scale_ones
-
-        datablock["impact"]["gco2e/gfood"] = extended_impact
+    datablock["impact"]["gco2e/gfood"] = extended_impact
 
     datablock["impact"]["g_co2e/year"] = fbs_impacts(food_uk, datablock["impact"]["gco2e/gfood"])
 
@@ -172,8 +166,8 @@ def datablock_setup(population_projection="Medium"):
     # -------------------------------
 
     # Get AES key & IV from secrets
-    AES_KEY = base64.b64decode(st.secrets["AES_KEY"])
-    AES_IV = base64.b64decode(st.secrets["AES_IV"])
+    AES_KEY = base64.b64decode("U19QNaXcSDjtC2h1SxfPsjCRR7bb06ufu2F571Y31so=")
+    AES_IV = base64.b64decode("RTtcrRl2g/c4AQ9VxYTdeA==")
     with open("UKCEH_LC_target_percentage.bin", "rb") as f:
         encrypted_data = f.read()
 
@@ -184,12 +178,10 @@ def datablock_setup(population_projection="Medium"):
 
     # Make sure the land use data and ALC data have the same coordinate base
     ALC, LC = xr.align(ALC, LC, join="outer")
-    peatland = xr.open_dataarray("images/peatland_binary_mask.nc")
 
     # datablock["land"]["percentage_land_use"] = LC.where(np.isfinite(ALC.grade))
     datablock["land"]["percentage_land_use"] = LC
     datablock["land"]["dominant_classification"] = ALC.grade
-    datablock["land"]["peatland"] = peatland
 
     # -------------------------------
     # Baseline data for comparison
