@@ -1,4 +1,6 @@
 numpy
 xarray
+pycrypto
+pandas
 git+https://github.com/Jucordero/AgriFoodPy.git@pipeline
 git+https://github.com/FixOurFood/agrifoodpy-data.git@importable
