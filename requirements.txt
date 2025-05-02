@@ -4,5 +4,6 @@ netcdf4
 xarray
 pycryptodome
 pandas
+matplotlib
 git+https://github.com/Jucordero/AgriFoodPy.git@pipeline
 git+https://github.com/FixOurFood/agrifoodpy-data.git@importable
