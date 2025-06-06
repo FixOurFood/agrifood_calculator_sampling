@@ -140,6 +140,80 @@ def item_scaling(datablock, scale, source, scaling_nutrient,
 
     return datablock
 
+def item_scaling_multiple(datablock, scale, source, scaling_nutrient,
+                 elasticity=None, items=None, constant=True,
+                 non_sel_items=None, bdleaf_conif_ratio=0.75):
+    """Reduces per capita intake quantities and replaces them by other items
+    keeping the overall consumption constant. Scales land use if production
+    changes
+    
+    Parameters
+    ----------
+
+    scale : float, arr, or xarray.DataArray
+        Scaling factor to apply to the selected items. If a DataArray, it must
+        have a "Year" dimension with the years to scale.
+
+        
+    items : arr, tuple
+        if an array, 
+
+    """
+    timescale = datablock["global_parameters"]["timescale"]
+    # We can use any quantity here, either per cap/day or per year. The ratio
+    # will cancel out the population growth
+    food_orig = datablock["food"][scaling_nutrient]
+
+    if np.isscalar(source):
+        source = [source]
+    
+    out = food_orig.copy(deep=True)
+
+    non_sel_items = get_items(food_orig, non_sel_items)
+    
+    # Balanced scaling. Reduce food, reduce imports, keep kCal constant
+    for sc, it in zip(scale, items):
+    
+        it_arr = get_items(out, it)
+        # if no items are specified, do nothing
+        if items is None:
+            return datablock
+        
+        out = balanced_scaling(fbs=out,
+                               items=it_arr,
+                               element="food",
+                               timescale=timescale,
+                               year=2021,
+                               scale=sc,
+                               adoption="logistic",
+                               origin=source,
+                               add=True,
+                               elasticity=elasticity,
+                               constant=constant,
+                               non_sel_items=non_sel_items)
+
+    # Scale feed, seed and processing
+    out = feed_scale(out, food_orig)
+
+    # out = check_negative_source(out, "production", "imports")
+    out = check_negative_source(out, "imports", "exports", add=False)
+
+    ratio = out / food_orig
+    ratio = ratio.where(~np.isnan(ratio), 1)
+
+    # Scale land use
+    pctg = datablock["land"]["percentage_land_use"].copy(deep=True)
+    land_out = production_land_scale(pctg, out, food_orig, bdleaf_conif_ratio=bdleaf_conif_ratio)
+    datablock["land"]["percentage_land_use"] = land_out
+
+    # Update per cap/day values and per year values using the same ratio, which
+    # is independent of population growth
+    qty_key = ["g/cap/day", "g_prot/cap/day", "g_fat/cap/day", "kCal/cap/day"]
+    for key in qty_key:
+        datablock["food"][key] *= ratio
+
+    return datablock
+
 def balanced_scaling(fbs, items, scale, element, year=None, adoption=None,
                      timescale=10, origin=None, add=True, elasticity=None,
                      constant=False, non_sel_items=None, fallback=None,
@@ -1516,5 +1590,199 @@ def shift_production(datablock, scale, items, items_target, land_area_ratio):
 
     # Rewrite food data to datablock and return
     datablock["food"]["g/cap/day"] = out
+
+    return datablock
+
+def compute_metrics(datablock, sector_emissions_dict):
+    """Computes a series of metrics from the resulting datablock"""
+
+    datablock["metrics"] = {}
+
+    # Emissions balance
+    metric_yr = 2050
+    reference_emissions_baseline = 94.24
+    reference_emissions_baseline_agriculture = 53.69
+
+    seq_da = datablock["impact"]["co2e_sequestration"].sel(Year=metric_yr)
+    emissions = datablock["impact"]["g_co2e/year"]["production"].sel(Year=metric_yr)/1e6
+    total_agriculture_emissions = emissions.sum(dim="Item").values/1e6
+    total_seq = seq_da.sel(Item=["Broadleaf woodland",
+                                    "Coniferous woodland",
+                                    "Managed pasture",
+                                    "Managed arable",
+                                    "Mixed farming",
+                                    "Silvopasture",
+                                    "Agroforestry"]).sum(dim="Item").values/1e6
+    
+    total_removals = seq_da.sel(Item=["BECCS from waste",
+                                      "BECCS from overseas biomass",
+                                      "BECCS from land",
+                                      "DACCS"]).sum(dim="Item").values/1e6
+    
+    emissions_balance = xr.DataArray(data = list(sector_emissions_dict.values()),
+                            name="Sectoral emissions",
+                            coords={"Sector": list(sector_emissions_dict.keys())})
+    
+    emissions_balance.loc[{"Sector": "Agriculture"}] = total_agriculture_emissions
+    emissions_balance.loc[{"Sector": "LU sinks"}] = -total_seq
+    emissions_balance.loc[{"Sector": "Removals"}] = -total_removals
+
+    emissions_balance.loc[{"Sector": "LU sources"}] -= seq_da.sel(Item=["Restored upland peat", "Restored lowland peat"]).sum(dim="Item").values/1e6
+    total_emissions = emissions_balance.sum().values
+    
+    reducion_emissions_pctg = (total_emissions - reference_emissions_baseline) / reference_emissions_baseline * 100
+    forest_sequestration_MtCO2 = seq_da.sel(Item=["Broadleaf woodland", "Coniferous woodland"]).sum(dim="Item").values/1e6
+    agricultural_emissions = emissions_balance.sel(Sector="Agriculture").sum().values
+    reduction_emissions_agricultural_pctg = (agricultural_emissions - reference_emissions_baseline_agriculture) / reference_emissions_baseline_agriculture * 100
+
+    datablock["metrics"]["emissions_balance"] = emissions_balance
+    datablock["metrics"]["total_sequestration"] = total_seq
+    datablock["metrics"]["total_removals"] = total_removals
+    datablock["metrics"]["total_emissions"] = total_emissions
+    datablock["metrics"]["reference_emissions_baseline"] = reference_emissions_baseline
+    datablock["metrics"]["reduction_emissions_pctg"] = reducion_emissions_pctg
+    datablock["metrics"]["forest_sequestration_MtCO2"] = forest_sequestration_MtCO2
+    datablock["metrics"]["agricultural_emissions"] = agricultural_emissions
+    datablock["metrics"]["reduction_emissions_agricultural_pctg"] = reduction_emissions_agricultural_pctg
+
+    # SSR
+    # ssr_metric = st.session_state["ssr_metric"]
+    ssr_metric_str = ["g/cap/day", "g_prot/cap/day", "g_fat/cap/day", "g_co2e/cap/day", "kCal/cap/day"]
+
+    for ssr_metric in ssr_metric_str:
+        gcapday = datablock["food"][ssr_metric].sel(Year=metric_yr).fillna(0)
+        gcapday = gcapday.fbs.group_sum(coordinate="Item_origin", new_name="Item")
+        gcapday_ref = datablock["food"][ssr_metric].sel(Year=2020).fillna(0)
+        gcapday_ref = gcapday_ref.fbs.group_sum(coordinate="Item_origin", new_name="Item")
+
+        SSR_ref = gcapday_ref.fbs.SSR()
+        SSR_metric_yr = gcapday.fbs.SSR()
+
+        datablock["metrics"][ssr_metric + "SSR_ref"] = SSR_ref
+        datablock["metrics"][ssr_metric + "SSR_metric_yr"] = SSR_metric_yr
+        datablock["metrics"][ssr_metric + "gcapday_item_origin"] = gcapday
+        datablock["metrics"][ssr_metric + "gcapday_ref_item_origin"] = gcapday_ref
+
+    # Herd size
+    baseline_beef_herd = datablock["baseline_beef_herd"]
+    baseline_dairy_herd = datablock["baseline_dairy_herd"]
+    dairy_herd_beef = datablock["dairy_herd_beef"]
+    baseline_poultry_heads = datablock["baseline_poultry_heads"]
+    baseline_pig_heads = datablock["baseline_pig_heads"]
+    baseline_sheep_flock = datablock["baseline_sheep_flock"]
+    baseline_dairy_herd_2y = datablock["baseline_dairy_herd_breeding_aged_2_years_"]
+
+    pop_baseline = datablock["population"]["population"].sel(Region = 826, Year=2020).values
+    pop_new = datablock["population"]["population"].sel(Region = 826, Year=metric_yr).values
+
+    baseline_dairy_production = pop_baseline * datablock["food"]["g/cap/day"]["production"].sel(Year=2020, Item=[2743, 2740, 2948]).fillna(0).sum().values
+    new_dairy_production = pop_new * datablock["food"]["g/cap/day"]["production"].sel(Year=metric_yr, Item=[2743, 2740, 2948]).fillna(0).sum().values
+
+    baseline_beef_production = pop_baseline *datablock["food"]["g/cap/day"]["production"].sel(Year=2020, Item=2731).fillna(0).sum().values
+    new_beef_production = pop_new * datablock["food"]["g/cap/day"]["production"].sel(Year=metric_yr, Item=2731).fillna(0).sum().values
+
+    new_dairy_herd = baseline_dairy_herd * new_dairy_production / baseline_dairy_production
+    new_beef_herd = baseline_beef_herd * (new_beef_production - dairy_herd_beef * baseline_beef_production * new_dairy_herd / baseline_dairy_herd) / ((1 - dairy_herd_beef)*baseline_beef_production)
+    new_dairy_herd_2y = baseline_dairy_herd_2y * new_dairy_production / baseline_dairy_production
+
+    baseline_poultry_production = pop_baseline * datablock["food"]["g/cap/day"]["production"].sel(Year=2020, Item=2734).fillna(0).sum().values
+    new_poultry_production = pop_new * datablock["food"]["g/cap/day"]["production"].sel(Year=metric_yr, Item=2734).fillna(0).sum().values
+    new_poultry_heads = baseline_poultry_heads * new_poultry_production / baseline_poultry_production
+
+    baseline_pig_production = pop_baseline * datablock["food"]["g/cap/day"]["production"].sel(Year=2020, Item=2733).fillna(0).sum().values
+    new_pig_production = pop_new * datablock["food"]["g/cap/day"]["production"].sel(Year=metric_yr, Item=2733).fillna(0).sum().values
+    new_pig_heads = baseline_pig_heads * new_pig_production / baseline_pig_production
+
+    baseline_sheep_production = pop_baseline * datablock["food"]["g/cap/day"]["production"].sel(Year=2020, Item=2732).fillna(0).sum().values
+    new_sheep_production = pop_new * datablock["food"]["g/cap/day"]["production"].sel(Year=metric_yr, Item=2732).fillna(0).sum().values
+    new_sheep_flock = baseline_sheep_flock * new_sheep_production / baseline_sheep_production
+
+
+    datablock["metrics"]["new_dairy_herd"] = new_dairy_herd
+    datablock["metrics"]["new_beef_herd"] = new_beef_herd
+    datablock["metrics"]["new_dairy_herd_2y"] = new_dairy_herd_2y
+    datablock["metrics"]["baseline_dairy_herd"] = baseline_dairy_herd
+    datablock["metrics"]["baseline_beef_herd"] = baseline_beef_herd
+    datablock["metrics"]["new_herd"] = new_dairy_herd + new_beef_herd
+
+    datablock["metrics"]["baseline_poultry_heads"] = baseline_poultry_heads
+    datablock["metrics"]["new_poultry_heads"] = new_poultry_heads
+
+    datablock["metrics"]["baseline_pig_heads"] = baseline_pig_heads
+    datablock["metrics"]["new_pig_heads"] = new_pig_heads
+
+    datablock["metrics"]["baseline_sheep_flock"] = baseline_sheep_flock
+    datablock["metrics"]["new_sheep_flock"] = new_sheep_flock
+
+    # Land use
+    pctg = datablock["land"]["percentage_land_use"]
+    totals = pctg.sum(dim=["x", "y"])
+
+    total_pasture = totals.sel(aggregate_class=["Improved grassland",
+                                                "Semi-natural grassland",
+                                                "Managed pasture",
+                                                "Silvopasture"]).sum().values
+    
+    baseline_pasture = datablock["land"]["baseline"].sel(aggregate_class=["Improved grassland",
+                                                                          "Semi-natural grassland"]).sum().values
+
+    total_forest = totals.sel(aggregate_class=["Broadleaf woodland",
+                                               "Coniferous woodland"]).sum().values
+    
+    new_forest_land = (total_forest - datablock["land"]["baseline"].sel(aggregate_class=["Broadleaf woodland", "Coniferous woodland"]).sum().values)
+    
+    baseline_forest = datablock["land"]["baseline"].sel(aggregate_class=["Broadleaf woodland",
+                                                                         "Coniferous woodland"]).sum().values
+
+    total_arable = totals.sel(aggregate_class=["Arable",
+                                               "Managed arable",
+                                               "Mixed farming",
+                                               "Agroforestry"]).sum().values
+    
+    baseline_arable = datablock["land"]["baseline"].sel(aggregate_class=["Arable"]).sum().values
+
+    new_arable_land_pctg = (total_arable - baseline_arable) / baseline_arable * 100
+    new_pasture_land_pctg = (total_pasture - baseline_pasture) / baseline_pasture * 100
+
+    datablock["metrics"]["total_pasture"] = total_pasture
+    datablock["metrics"]["total_forest"] = total_forest
+    datablock["metrics"]["total_arable"] = total_arable
+    datablock["metrics"]["baseline_pasture"] = baseline_pasture
+    datablock["metrics"]["baseline_forest"] = baseline_forest
+    datablock["metrics"]["baseline_arable"] = baseline_arable
+    datablock["metrics"]["new_forest_land"] = new_forest_land
+    datablock["metrics"]["new_arable_land_pctg"] = new_arable_land_pctg
+    datablock["metrics"]["new_pasture_land_pctg"] = new_pasture_land_pctg
+
+    # Crop sizes
+
+    gcapday = datablock["food"]["g/cap/day"]["production"]
+
+    baseline_potatoes_area_mha = 0.012
+    baseline_potato_production = pop_baseline * gcapday.sel(Year=2020, Item=2531).fillna(0).sum().values
+    new_potato_production = pop_new * gcapday.sel(Year=metric_yr, Item=2531).fillna(0).sum().values
+    new_potato_area = baseline_potatoes_area_mha * new_potato_production / baseline_potato_production
+    datablock["metrics"]["new_potato_area"] = new_potato_area
+    
+
+    baseline_oilseed_area_mha = 0.418
+    baseline_oilseed_production = pop_baseline * gcapday.sel(Year=2020, Item=[2570, 2572, 2573, 2575, 2576, 2577, 2578, 2579, 2581, 2582, 2586 ]).fillna(0).sum().values
+    new_oilseed_production = pop_new * gcapday.sel(Year=metric_yr, Item=[2570, 2572, 2573, 2575, 2576, 2577, 2578, 2579, 2581, 2582, 2586 ]).fillna(0).sum().values
+    new_oilseed_area = baseline_oilseed_area_mha * new_oilseed_production / baseline_oilseed_production
+    datablock["metrics"]["new_oilseed_area"] = new_oilseed_area
+
+    baseline_cereal_area_mha = 3.1
+    baseline_cereal_production = pop_baseline * gcapday.sel(Year=2020, Item=gcapday.Item_group=="Cereals - Excluding Beer").fillna(0).sum().values
+    new_cereal_production = pop_new * gcapday.sel(Year=metric_yr, Item=gcapday.Item_group=="Cereals - Excluding Beer").fillna(0).sum().values
+    
+    new_cereal_area = baseline_cereal_area_mha * new_cereal_production / baseline_cereal_production
+    datablock["metrics"]["new_cereal_area"] = new_cereal_area
+    
+    baseline_horticulture_area_mha = 0.145
+    new_horiticulture_area = baseline_horticulture_area_mha * total_arable / baseline_arable * (1+datablock["horticulture"]/100)
+    datablock["metrics"]["new_horticulture_area"] = new_horiticulture_area
+
+    other_crops_area_mha = total_arable/1e6 - new_potato_area - new_oilseed_area - new_cereal_area - new_horiticulture_area
+    datablock["metrics"]["other_crops_area_mha"] = other_crops_area_mha
 
     return datablock

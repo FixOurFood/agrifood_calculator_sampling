@@ -50,43 +50,14 @@ def SSR_emissions(input_datablock, params, sector_emissions_dict):
     datablock_copy = copy.deepcopy(input_datablock)
     food_system = Pipeline(datablock_copy)
 
-    # SSR
     food_system = pipeline_setup(food_system, params)
     food_system.run()
     datablock_result = food_system.datablock
 
-    metric_yr = 2050
-    gcapday = datablock_result["food"]["g/cap/day"].sel(Year=metric_yr).fillna(0)
-    SSR_metric_yr = gcapday.fbs.SSR()
+    SSR_metric_yr = datablock_result["metrics"]["g/cap/daySSR_metric_yr"]
+    total_emissions = datablock_result["metrics"]["total_emissions"]
 
-
-    # Emissions
-    seq_da = datablock_result["impact"]["co2e_sequestration"].sel(Year=metric_yr)
-    emissions = datablock_result["impact"]["g_co2e/year"]["production"].sel(Year=metric_yr)/1e6
-    total_emissions = emissions.sum(dim="Item").values/1e6
-    total_seq = seq_da.sel(Item=["Broadleaf woodland",
-                                    "Coniferous woodland",
-                                    "Managed pasture",
-                                    "Managed arable",
-                                    "Mixed farming",
-                                    "Silvopasture",
-                                    "Agroforestry"]).sum(dim="Item").values/1e6
-
-    total_removals = seq_da.sel(Item=["BECCS from waste", "BECCS from overseas biomass", "BECCS from land", "DACCS"]).sum(dim="Item").values/1e6
-
-    emissions_balance = xr.DataArray(data = list(sector_emissions_dict.values()),
-                            name="Sectoral emissions",
-                            coords={"Sector": list(sector_emissions_dict.keys())})
-
-    emissions_balance.loc[{"Sector": "Agriculture"}] = total_emissions
-    emissions_balance.loc[{"Sector": "LU sinks"}] = -total_seq
-    emissions_balance.loc[{"Sector": "Removals"}] = -total_removals
-
-    emissions_balance.loc[{"Sector": "LU sources"}] -= seq_da.sel(Item=["Restored upland peat", "Restored lowland peat"]).sum(dim="Item").values/1e6
-
-    total_emissions = emissions_balance.sum()
-
-    return SSR_metric_yr.to_numpy(), total_emissions.to_numpy()
+    return SSR_metric_yr.to_numpy(), total_emissions
 
 
 # Set the scenario parameters - ideally switch to using spreadsheet instead of this
@@ -144,69 +115,29 @@ def pipeline_setup(food_system, params):
     food_system.add_node(project_future,
                             {"yield_change":params["yield_proj"]})
     
-    food_system.add_node(item_scaling,
-                            {"scale":1+params["ruminant"]/100,
-                            "items":[2731, 2732],
-                            "source":["production", "imports"],
-                            "elasticity":[params["elasticity"], 1-params["elasticity"]],
-                            "scaling_nutrient":params["scaling_nutrient"],
-                            "constant":params["cereal_scaling"],
-                            "non_sel_items":("Item_group", "Cereals - Excluding Beer")})
+    food_system.add_node(item_scaling_multiple,
+                         {"scale":[1+params["ruminant"]/100,
+                                   1+params["pig_poultry"]/100,
+                                   1+params["fish_seafood"]/100,
+                                   1+params["dairy"]/100,
+                                   1+params["eggs"]/100,
+                                   1+params["fruit_veg"]/100,
+                                   1+params["pulses"]/100],
 
-    food_system.add_node(item_scaling,
-                            {"scale":1+params["pig_poultry"]/100,
-                            "items":[2733, 2734],
-                            "source":["production", "imports"],
-                            "elasticity":[params["elasticity"], 1-params["elasticity"]],
-                            "scaling_nutrient":params["scaling_nutrient"],
-                            "constant":params["cereal_scaling"],
-                            "non_sel_items":("Item_group", "Cereals - Excluding Beer")})
+                          "items":[[2731, 2732],
+                                   [2733, 2734],
+                                   ("Item_group", "Fish, Seafood"),
+                                   [2740, 2743, 2948],
+                                   [2949],
+                                   ("Item_group", ["Vegetables", "Fruits - Excluding Wine"]),
+                                   ("Item_group", ["Pulses"])],
 
-    food_system.add_node(item_scaling,
-                            {"scale":1+params["fish_seafood"]/100,
-                            "items":("Item_group", "Fish, Seafood"),
-                            "source":["production", "imports"],
-                            "elasticity":[params["elasticity"], 1-params["elasticity"]],
-                            "scaling_nutrient":params["scaling_nutrient"],
-                            "constant":params["cereal_scaling"],
-                            "non_sel_items":("Item_group", "Cereals - Excluding Beer")})
-
-    food_system.add_node(item_scaling,
-                            {"scale":1+params["dairy"]/100,
-                            "items":[2740, 2743, 2948],
-                            "source":["production", "imports"],
-                            "elasticity":[params["elasticity"], 1-params["elasticity"]],
-                            "scaling_nutrient":params["scaling_nutrient"],
-                            "constant":params["cereal_scaling"],
-                            "non_sel_items":("Item_group", "Cereals - Excluding Beer")})
-
-    food_system.add_node(item_scaling,
-                            {"scale":1+params["eggs"]/100,
-                            "items":[2949],
-                            "source":["production", "imports"],
-                            "elasticity":[params["elasticity"], 1-params["elasticity"]],
-                            "scaling_nutrient":params["scaling_nutrient"],
-                            "constant":params["cereal_scaling"],
-                            "non_sel_items":("Item_group", "Cereals - Excluding Beer")})
-
-    food_system.add_node(item_scaling,
-                            {"scale":1+params["fruit_veg"]/100,
-                            "items":("Item_group", ["Vegetables", "Fruits - Excluding Wine"]),
-                            "source":["production", "imports"],
-                            "elasticity":[params["elasticity"], 1-params["elasticity"]],
-                            "scaling_nutrient":params["scaling_nutrient"],
-                            "constant":params["cereal_scaling"],
-                            "non_sel_items":("Item_group", "Cereals - Excluding Beer")})
-
-    food_system.add_node(item_scaling,
-                            {"scale":1+params["pulses"]/100,
-                            "items":("Item_group", ["Pulses"]),
-                            "source":["production", "imports"],
-                            "elasticity":[params["elasticity"], 1-params["elasticity"]],
-                            "scaling_nutrient":params["scaling_nutrient"],
-                            "constant":params["cereal_scaling"],
-                            "non_sel_items":("Item_group", "Cereals - Excluding Beer")})
-
+                          "source":["production", "imports"],
+                          "elasticity":[params["elasticity"], 1-params["elasticity"]],
+                          "scaling_nutrient":params["scaling_nutrient"],
+                          "constant":params["cereal_scaling"],
+                          "non_sel_items":("Item_group", "Cereals - Excluding Beer")})
+ 
     food_system.add_node(cultured_meat_model,
                             {"cultured_scale":params["meat_alternatives"]/100,
                             "labmeat_co2e":params["labmeat_co2e"],
@@ -433,6 +364,11 @@ def pipeline_setup(food_system, params):
                                    params["mixed_farming_seq_ha_yr"],
                                    ]})
 
+    # Compute emissions
     food_system.add_node(compute_emissions)
+
+    # Compute additional metrics 
+    food_system.add_node(compute_metrics, 
+                         {"sector_emissions_dict":set_sector_emissions_dict()})
 
     return food_system
