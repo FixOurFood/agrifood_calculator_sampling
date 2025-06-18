@@ -369,7 +369,6 @@ def food_waste_model(datablock, waste_scale, kcal_rda, source, elasticity=None):
     """
 
     timescale = datablock["global_parameters"]["timescale"]
-    # food_orig = copy.deepcopy(datablock["food"]["kCal/cap/day"])
     kcal_fact = datablock["food"]["kCal/g_food"]
     food_orig = copy.deepcopy(datablock["food"]["g/cap/day"])*kcal_fact
     datablock["food"]["rda_kcal"] = kcal_rda
@@ -437,7 +436,6 @@ def alternative_food_model(datablock, cultured_scale, labmeat_co2e, baseline_ite
     food_orig = copy.deepcopy(datablock["food"]["g/cap/day"])
     kcal_fact = datablock["food"]["kCal/g_food"]
     kcal_orig = food_orig * kcal_fact
-    # kcal_orig = copy.deepcopy(datablock["food"]["kCal/cap/day"])
     food_base = copy.deepcopy(datablock["food"]["baseline_projected"])
 
     scale_alternative = logistic_food_supply(food_orig, timescale, 0, cultured_scale)
@@ -488,8 +486,6 @@ def alternative_food_model(datablock, cultured_scale, labmeat_co2e, baseline_ite
     # Add emissions factor for cultured meat
     datablock["impact"]["gco2e/gfood"] = datablock["impact"]["gco2e/gfood"].fbs.add_items(new_items)
     datablock["impact"]["gco2e/gfood"].loc[{"Item":new_items}] = labmeat_co2e
-
-    # kcal_cap_day = datablock["food"]["kCal/cap/day"]
 
     out_kcal_cap_day = scale_kcal_feed(kcal_cap_day, kcal_orig, new_items)
     ratio = out_kcal_cap_day / kcal_cap_day
@@ -709,12 +705,6 @@ def forest_land_model_new(datablock, forest_fraction, bdleaf_conif_ratio):
     ratio = out / food_orig
     ratio = ratio.where(~np.isnan(ratio), 1)
 
-    # # Update per cap/day values and per year values using the same ratio, which
-    # # is independent of population growth
-    # qty_key = ["g/cap/day", "g_prot/cap/day", "g_fat/cap/day", "kCal/cap/day"]
-    # for key in qty_key:
-    #     datablock["food"][key] *= ratio
-
     datablock["food"]["g/cap/day"] = out
 
     return datablock
@@ -868,12 +858,6 @@ def peatland_restoration(datablock, restore_fraction, new_land_type, old_land_ty
     
     ratio = out / food_orig
     ratio = ratio.where(~np.isnan(ratio), 1)
-
-    # # Update per cap/day values and per year values using the same ratio, which
-    # # is independent of population growth
-    # qty_key = ["g_prot/cap/day", "g_fat/cap/day", "kCal/cap/day"]
-    # for key in qty_key:
-    #     datablock["food"][key] *= ratio
 
     datablock["food"]["g/cap/day"] = out
 
@@ -1054,9 +1038,11 @@ def scale_production(datablock, scale_factor, items=None):
 
     # Update per cap/day values and per year values using the same ratio, which
     # is independent of population growth
-    qty_key = ["g/cap/day", "g_prot/cap/day", "g_fat/cap/day", "kCal/cap/day"]
-    for key in qty_key:
-        datablock["food"][key] *= ratio
+    # qty_key = ["g/cap/day", "g_prot/cap/day", "g_fat/cap/day", "kCal/cap/day"]
+    # for key in qty_key:
+    #     datablock["food"][key] *= ratio
+
+    datablock["food"]["g/cap/day" ] *= ratio
 
     return datablock
 
@@ -1118,12 +1104,6 @@ def BECCS_farm_land(datablock, farm_percentage, items, land_type="Arable",
     ratio = out / food_orig
     ratio = ratio.where(~np.isnan(ratio), 1)
     datablock["food"]["g/cap/day"] = out
-
-    # Update per cap/day values and per year values using the same ratio, which
-    # is independent of population growth
-    qty_key = ["g_prot/cap/day", "g_fat/cap/day", "kCal/cap/day"]
-    for key in qty_key:
-        datablock["food"][key] *= ratio
 
     return datablock
 
@@ -1251,9 +1231,8 @@ def agroecology_model(datablock, land_percentage, land_type,
 
     # Update per cap/day values and per year values using the same ratio, which
     # is independent of population growth
-    qty_key = ["g/cap/day", "g_prot/cap/day", "g_fat/cap/day", "kCal/cap/day"]
-    for key in qty_key:
-        datablock["food"][key] *= ratio
+
+    datablock["food"]["g/cap/day" ] *= ratio
 
     return datablock
 
@@ -1672,14 +1651,14 @@ def shift_production(datablock, scale, items, items_target, land_area_ratio):
 def compute_metrics(datablock, sector_emissions_dict):
     """Computes a series of metrics from the resulting datablock"""
 
+    datablock["metrics"] = {}
+
     # nutritional_values
     qty_keys = ["g_prot/cap/day", "g_fat/cap/day", "kCal/cap/day"]
     nutrition_keys = ["g_prot/g_food", "g_fat/g_food", "kCal/g_food"]
 
     for qk, nk in zip(qty_keys, nutrition_keys):
         datablock["food"][qk] = datablock["food"][nk] * datablock["food"]["g/cap/day"]
-
-    datablock["metrics"] = {}
 
     # Emissions balance
     metric_yr = 2050
