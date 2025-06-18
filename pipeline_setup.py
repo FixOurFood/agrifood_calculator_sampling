@@ -45,7 +45,7 @@ def set_sector_emissions_dict():
     return sector_emissions_dict
 
 # Set the pipeline
-def SSR_emissions(input_datablock, params, timing=False):
+def run_calculator(input_datablock, params, timing=False):
 
     datablock_copy = copy.deepcopy(input_datablock)
     food_system = Pipeline(datablock_copy)
@@ -54,10 +54,19 @@ def SSR_emissions(input_datablock, params, timing=False):
     food_system.run(timing=timing)
     datablock_result = food_system.datablock
 
-    SSR_metric_yr = datablock_result["metrics"]["g/cap/daySSR_metric_yr"]
+    SSR_gram = datablock_result["metrics"]["g/cap/daySSR_metric_yr"]
+    SSR_prot = datablock_result["metrics"]["g_prot/cap/daySSR_metric_yr"]
+    SSR_fat = datablock_result["metrics"]["g_fat/cap/daySSR_metric_yr"]
+    SSR_kcal = datablock_result["metrics"]["kCal/cap/daySSR_metric_yr"]
     total_emissions = datablock_result["metrics"]["total_emissions"]
+    herd_size = datablock_result["metrics"]["new_herd"].isel(Year=-1)
 
-    return SSR_metric_yr.to_numpy(), total_emissions
+    return SSR_gram.to_numpy(), \
+           SSR_prot.to_numpy(), \
+           SSR_fat.to_numpy(), \
+           SSR_kcal.to_numpy(), \
+           total_emissions, \
+           herd_size.to_numpy()
 
 
 # Set the scenario parameters - ideally switch to using spreadsheet instead of this
