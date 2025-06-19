@@ -74,6 +74,7 @@ def set_baseline_scenario(params):
 
     params["yield_proj"] = 0
     params["elasticity"] = 0.5
+
     params["ruminant"] = 0
     params["pig_poultry"] = 0
     params["fish_seafood"] = 0
@@ -84,6 +85,7 @@ def set_baseline_scenario(params):
     params["meat_alternatives"] = 0
     params["dairy_alternatives"] = 0
     params["waste"] = 0
+
     params["foresting_pasture"] = 13.17
     params["land_BECCS"] = 0
     params["land_BECCS_pasture"] = 0
@@ -91,19 +93,22 @@ def set_baseline_scenario(params):
     params["pulse_production"] = 0
     params["lowland_peatland"] = 0
     params["upland_peatland"] = 0
-    params["pasture_soil_carbon"] = 0
-    params["arable_soil_carbon"] = 0
     params["mixed_farming"] = 0
+    
     params["silvopasture"] = 0
-    params["nitrogen"] = 0
+    params["pasture_soil_carbon"] = 0
     params["methane_inhibitor"] = 0
     params["stock_density"] = 0
     params["manure_management"] = 0
     params["animal_breeding"] = 0
     params["fossil_livestock"] = 0
+
     params["agroforestry"] = 0
+    params["arable_soil_carbon"] = 0
+    params["nitrogen"] = 0
     params["vertical_farming"] = 0
     params["fossil_arable"] = 0
+    
     params["waste_BECCS"] = 0
     params["overseas_BECCS"] = 0
     params["DACCS"] = 0
