@@ -1797,6 +1797,8 @@ def compute_metrics(datablock, sector_emissions_dict):
     datablock["metrics"]["baseline_sheep_flock"] = baseline_sheep_flock
     datablock["metrics"]["new_sheep_flock"] = new_sheep_flock
 
+    datablock["metrics"]["all_animals"] = new_dairy_herd + new_beef_herd + new_poultry_heads + new_pig_heads + new_sheep_flock
+
     size_dataarrays = [new_dairy_herd, new_dairy_herd_2y, new_beef_herd,
                        new_poultry_heads, new_pig_heads, new_sheep_flock]
 
