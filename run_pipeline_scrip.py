@@ -15,8 +15,14 @@ parser.add_argument('--ranges', type=str, help='Name of parameter ranges on rang
 parser.add_argument('--zreq', type=str, help='Name of parameter to optimize', default="herd size")
 parser.add_argument('--niter', type=int, help='Number of iterations', default=10)
 parser.add_argument('--test', type=bool, help='Run test with baseline scenario', default=False)
+parser.add_argument('--ffc_tol', type=float, help='Tolerance for FFC objective', default=1e-6)
+
+parser.add_argument('--base_param', nargs=2, action='append', metavar=('KEY', 'VALUE'), default=[])
+parser.add_argument('--adv_set', nargs=2, action='append', metavar=('KEY', 'VALUE'), default=[])
+
 default_run_name = f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 parser.add_argument('--run_name', type=str, help='Name of run to save results', default=default_run_name)
+
 args = parser.parse_args()
 
 # ---------------------------------------------------
@@ -32,12 +38,17 @@ advanced_settings_url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTanjc0
 sector_emissions_dict = set_sector_emissions_dict()
 # Read in the advanced settings from the google sheet
 
-params = read_advanced_settings(advanced_settings_url)
+adv_set_dict = read_advanced_settings(advanced_settings_url)
+
+# Update the advanced settings with the passed arguments
+passed_adv_set = {k: float(v) for k, v in args.adv_set}
+adv_set_dict.update(passed_adv_set)
 
 print("Advanced settings:")
-for k, v in params.items():
+for k, v in adv_set_dict.items():
     print(k, v)
 print()
+
 
 # ---------------------------------------------------
 # Parameter ranges
@@ -93,11 +104,14 @@ for n, b in zip(names_x, x_bounds):
 print()
 
 # Set the scenario parameters
-params_baseline = set_baseline_scenario(params)
+params_baseline = set_baseline_scenario(adv_set_dict)
 
 # Update baseline parameters
 for k, v in zip(names_fixed, values_fixed):
     params_baseline[k] = v
+
+passed_base_params = {k: float(v) for k, v in args.base_param}
+params_baseline.update(passed_base_params)
 
 print("Baseline scenario:")
 for k, v in params_baseline.items():
@@ -148,7 +162,7 @@ if args.test:
     exit()
 
 # Set tolerances, verbosity, and options for the minimizer
-ffc_tol = 1e-6
+ffc_tol = args.ffc_tol
 options = {
     'disp': True,      # Show convergence messages
     'maxiter': args.niter,     # Max number of iterations
@@ -182,6 +196,7 @@ print("Was the minimization succesfull? ", result['success'])  # Boolean indicat
 z1_val = ffc_wrapper.objective(result.x, "SSR weight")
 z2_val = ffc_wrapper.objective(result.x, "emissions")
 print(f"SSR weight = {z1_val:.8f}; emissions = {z2_val:.8f}")
+
 # ---------------------------------------------------
 # Save results to log file
 # ---------------------------------------------------
@@ -207,9 +222,12 @@ with open(log_file_path, "w") as log_file:
         log_file.write(f"{n}: {val}\n")
     log_file.write("\n")
 
+    # Write optimization results
     log_file.write(f"Minimum value of function: {result.fun}\n")
     log_file.write(f"Optimization success: {result.success}\n")
     log_file.write(f"Message: {result.message}\n")
+    log_file.write(f"Number of iterations: {result.nfev}\n")
+    log_file.write(f"Minimiser tolerance: {ffc_tol}\n")
 
 print(f"Results saved to {log_file_path}")
 
