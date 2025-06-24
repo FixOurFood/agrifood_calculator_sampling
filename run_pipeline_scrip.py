@@ -119,10 +119,10 @@ ffc_wrapper = FFCObjectiveWithCache(names_x, datablock_init, params_baseline, ve
 z_name_requested = args.zreq
 
 x0 = [params_baseline[n] for n in names_x]
-ffc_constraints = [{'type': 'ineq', 'fun': lambda x: ffc_wrapper.positive_constraint(x, "SSR weight", threshold=0.7201, verbosity=0)},
-                   {'type': 'ineq', 'fun': lambda x: ffc_wrapper.positive_constraint(x, "SSR prot", threshold=0.7837, verbosity=0)},
-                   {'type': 'ineq', 'fun': lambda x: ffc_wrapper.positive_constraint(x, "SSR fat", threshold=0.6770, verbosity=0)},
-                   {'type': 'ineq', 'fun': lambda x: ffc_wrapper.positive_constraint(x, "SSR kcal", threshold=0.7327, verbosity=0)},
+ffc_constraints = [{'type': 'ineq', 'fun': lambda x: ffc_wrapper.positive_constraint(x, "SSR weight", threshold=0.6736643225, verbosity=0)},
+                   {'type': 'ineq', 'fun': lambda x: ffc_wrapper.positive_constraint(x, "SSR prot", threshold=0.7331495528, verbosity=0)},
+                   {'type': 'ineq', 'fun': lambda x: ffc_wrapper.positive_constraint(x, "SSR fat", threshold=0.6333747730, verbosity=0)},
+                   {'type': 'ineq', 'fun': lambda x: ffc_wrapper.positive_constraint(x, "SSR kcal", threshold=0.6854386315, verbosity=0)},
                    {'type': 'ineq', 'fun': lambda x: ffc_wrapper.negative_constraint(x, "emissions", threshold=0.0, verbosity=0)}]
 
 # ---------------------------------------------------
