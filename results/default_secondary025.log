@@ -1,0 +1,132 @@
+Baseline Parameters:
+labmeat_co2e: 2.2
+dairy_alternatives_co2e: 0.31
+rda_kcal: 2250.0
+n_scale: 20.0
+bdleaf_seq_ha_yr: 3.82
+conif_seq_ha_yr: 7.63
+new_bdleaf_seq_ha_yr: 2.1
+new_conif_seq_ha_yr: 11.2
+peatland_seq_ha_yr: 20.0
+managed_arable_seq_ha_yr: 0.66
+managed_pasture_seq_ha_yr: 0.66
+mixed_farming_seq_ha_yr: 0.66
+beccs_crops_seq_ha_yr: 26.9
+dairy_herd_grazing: 0.05
+dairy_herd_beef: 0.52
+baseline_beef_herd: 5672659.0
+baseline_dairy_herd: 3479950.0
+baseline_dairy_herd_breeding_aged_2_years_: 1836442.0
+baseline_sheep_flock: 31016701.0
+baseline_poultry_heads: 178000000.0
+baseline_pig_heads: 4715669.0
+horticulture_land_ratio: 0.086
+pulse_land_ratio: 0.033
+mixed_farming_production_scale: 0.93
+mixed_farming_secondary_production_scale: 0.25
+agroecology_tree_coverage: 0.1
+nitrogen_prod_factor: 0.0
+nitrogen_ghg_factor: 0.1
+manure_prod_factor: 0.0
+manure_ghg_factor: 0.07
+breeding_prod_factor: 0.0
+breeding_ghg_factor: 0.08
+methane_prod_factor: 0.0
+methane_ghg_factor: 0.13
+fossil_livestock_prod_factor: 0.0
+fossil_livestock_ghg_factor: 0.1
+fossil_arable_prod_factor: 0.0
+fossil_arable_ghg_factor: 0.1
+scaling_nutrient: kCal/cap/day
+emission_factors: NDC 2020
+yield_proj: 0
+elasticity: 0.0
+ruminant: 0
+pig_poultry: 0
+fish_seafood: 0
+dairy: 0
+eggs: 0
+fruit_veg: 0
+pulses: 0
+meat_alternatives: 0
+dairy_alternatives: 0
+waste: 0
+foresting_pasture: 13.17
+land_BECCS: 0
+land_BECCS_pasture: 0
+horticulture: 0
+pulse_production: 0
+lowland_peatland: 0
+upland_peatland: 0
+mixed_farming: 0
+silvopasture: 0
+pasture_soil_carbon: 100.0
+methane_inhibitor: 100.0
+stock_density: 0
+manure_management: 100.0
+animal_breeding: 100.0
+fossil_livestock: 100.0
+agroforestry: 0
+arable_soil_carbon: 100.0
+nitrogen: 100.0
+vertical_farming: 0
+fossil_arable: 100.0
+waste_BECCS: 16.0
+overseas_BECCS: 0.0
+DACCS: 0.0
+biochar: 0.0
+bdleaf_conif_ratio: 75.0
+livestock_yield: 100.0
+cereal_scaling: True
+
+Varied Parameters and Bounds:
+ruminant: (-70.0, 0.0)
+dairy: (-60.0, 15.0)
+pig_poultry: (-60.0, 15.0)
+eggs: (-60.0, 15.0)
+pulses: (0.0, 500.0)
+fruit_veg: (-20.0, 500.0)
+meat_alternatives: (0.0, 100.0)
+dairy_alternatives: (0.0, 100.0)
+waste: (0.0, 80.0)
+foresting_pasture: (13.17, 33.17)
+land_BECCS: (0.0, 50.0)
+land_BECCS_pasture: (0.0, 50.0)
+lowland_peatland: (0.0, 75.0)
+upland_peatland: (0.0, 90.0)
+horticulture: (-20.0, 100.0)
+pulse_production: (-20.0, 100.0)
+mixed_farming: (0.0, 100.0)
+silvopasture: (0.0, 100.0)
+stock_density: (-30.0, 0.0)
+agroforestry: (0.0, 100.0)
+vertical_farming: (0.0, 60.0)
+
+Optimization Results:
+ruminant: -5.718402878332301
+dairy: -44.68584106819779
+pig_poultry: -23.939605162759246
+eggs: -1.1420517955885794
+pulses: 3.911629068298037
+fruit_veg: -8.748694952083278
+meat_alternatives: 5.00595907080866
+dairy_alternatives: 4.087848926655684
+waste: 80.0
+foresting_pasture: 13.17
+land_BECCS: 15.203872861330701
+land_BECCS_pasture: 11.348631072912442
+lowland_peatland: 5.6731795362217425e-18
+upland_peatland: 7.387334539337175e-18
+horticulture: -19.993154374591107
+pulse_production: 34.07367997372415
+mixed_farming: 100.0
+silvopasture: -2.7594850693030955e-18
+stock_density: 1.0536899304033122e-17
+agroforestry: -7.5721242285783e-18
+vertical_farming: 58.31430995529574
+
+Minimum value of function: -9133325.28261809
+Optimization success: False
+Message: Did not converge to a solution satisfying the constraints. See `maxcv` for magnitude of violation.
+Number of iterations: 202
+Minimiser tolerance: 0.1
