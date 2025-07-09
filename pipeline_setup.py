@@ -61,6 +61,7 @@ def run_calculator(input_datablock, params, timing=False):
     total_emissions = datablock_result["metrics"]["total_emissions"]
     herd_size = datablock_result["metrics"]["new_herd"].isel(Year=-1)
     animals_counts = datablock_result["metrics"]["all_animals"].isel(Year=-1)
+    woodland = datablock_result["metrics"]["total_forest"]
 
     return SSR_gram.to_numpy(), \
            SSR_prot.to_numpy(), \
@@ -68,7 +69,8 @@ def run_calculator(input_datablock, params, timing=False):
            SSR_kcal.to_numpy(), \
            total_emissions, \
            herd_size.to_numpy(), \
-           animals_counts.to_numpy()
+           animals_counts.to_numpy(), \
+           woodland
 
 
 # Set the scenario parameters - ideally switch to using spreadsheet instead of this

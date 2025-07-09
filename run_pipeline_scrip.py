@@ -137,7 +137,8 @@ ffc_constraints = [{'type': 'ineq', 'fun': lambda x: ffc_wrapper.positive_constr
                    {'type': 'ineq', 'fun': lambda x: ffc_wrapper.positive_constraint(x, "SSR prot", threshold=0.7331495528, verbosity=0)},
                    {'type': 'ineq', 'fun': lambda x: ffc_wrapper.positive_constraint(x, "SSR fat", threshold=0.6333747730, verbosity=0)},
                    {'type': 'ineq', 'fun': lambda x: ffc_wrapper.positive_constraint(x, "SSR kcal", threshold=0.6854386315, verbosity=0)},
-                   {'type': 'ineq', 'fun': lambda x: ffc_wrapper.negative_constraint(x, "emissions", threshold=0.0, verbosity=0)}]
+                   {'type': 'ineq', 'fun': lambda x: ffc_wrapper.negative_constraint(x, "emissions", threshold=0.0, verbosity=0)}
+                   ]
 
 # ---------------------------------------------------
 # Configure and run the optimization
@@ -152,8 +153,9 @@ if args.test:
     z5_name = "emissions"
     z6_name = "herd size"
     z7_name = "animals"
+    z8_name = "woodland"
 
-    z_names = [z1_name, z2_name, z3_name, z4_name, z5_name, z6_name, z7_name]
+    z_names = [z1_name, z2_name, z3_name, z4_name, z5_name, z6_name, z7_name, z8_name]
 
     z_val_baseline = run_calculator(datablock_init, params_baseline)
     for zn, zval in zip(z_names, z_val_baseline):
@@ -203,7 +205,32 @@ print(f"SSR weight = {z1_val:.8f}; emissions = {z2_val:.8f}")
 
 log_file_path = f"{args.run_name}.log"
 
+# Write a URL with the slider parameters
+
+URL_BASE = "https://agrifood-consultation.streamlit.app/?embedding=True"
+
+slider_params = set_baseline_scenario({})
+
+for k, v in params_baseline.items():
+    if k in slider_params.keys():
+        slider_params[k] = v
+
+for n, val in zip(names_x, result.x):
+    slider_params[n] = val
+
+for k, val in slider_params.items():
+    URL_BASE += f"&{k}={val}"
+
 with open(log_file_path, "w") as log_file:
+
+    # Write optimization results
+    log_file.write(f"Minimum value of function: {result.fun}\n")
+    log_file.write(f"Optimization success: {result.success}\n")
+    log_file.write(f"Message: {result.message}\n")
+    log_file.write(f"Number of iterations: {result.nfev}\n")
+    log_file.write(f"Minimiser tolerance: {ffc_tol}\n")
+    log_file.write("\n")
+
     # Write baseline parameters
     log_file.write("Baseline Parameters:\n")
     for k, v in params_baseline.items():
@@ -222,12 +249,8 @@ with open(log_file_path, "w") as log_file:
         log_file.write(f"{n}: {val}\n")
     log_file.write("\n")
 
-    # Write optimization results
-    log_file.write(f"Minimum value of function: {result.fun}\n")
-    log_file.write(f"Optimization success: {result.success}\n")
-    log_file.write(f"Message: {result.message}\n")
-    log_file.write(f"Number of iterations: {result.nfev}\n")
-    log_file.write(f"Minimiser tolerance: {ffc_tol}\n")
+    log_file.write(URL_BASE)
 
 print(f"Results saved to {log_file_path}")
-
+print(f"See results here: {URL_BASE}")
+ 

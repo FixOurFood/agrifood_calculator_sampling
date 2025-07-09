@@ -25,7 +25,8 @@ class FFCObjectiveWithCache:
                    "SSR kcal",
                    "emissions",
                    "herd size",
-                   "animals"]
+                   "animals",
+                   'woodland']
 
     def _calculate(self, x_tuple, verbosity):
         
